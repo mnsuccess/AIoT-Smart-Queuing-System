@@ -6,6 +6,15 @@ import cv2
 import argparse
 import sys
 
+'''
+ For reference, here are all the arguments used for the argument parser in the command line:
+ * `--model`:  The file path of the pre-trained IR model, which has been pre-processed using the model optimizer. There is automated support built in this argument to support both FP32 and FP16 models targeting different hardware.
+ * `--device`: The type of hardware you want to load the model on (CPU, GPU, MYRIAD, HETERO:FPGA,CPU)
+ * `--video`: The file path of the input video.
+ * `--output_path`: The location where the output stats and video file with inference needs to be stored (results/[device]).
+ * `--max_people`: The max number of people in queue before directing a person to another queue.
+ * `--threshold`: The probability threshold value for the person detection. Optional arg; default value is 0.60.
+'''
 
 class Queue:
     '''
@@ -52,7 +61,7 @@ class PersonDetect:
         self.input_shape=self.model.inputs[self.input_name].shape
         self.output_name=next(iter(self.model.outputs))
         self.output_shape=self.model.outputs[self.output_name].shape
-
+        
     def load_model(self):
     '''
     TODO: This method needs to be completed by you
