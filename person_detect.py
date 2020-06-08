@@ -1,3 +1,4 @@
+
 import numpy as np
 import time
 from openvino.inference_engine import IENetwork, IECore
@@ -6,15 +7,6 @@ import cv2
 import argparse
 import sys
 
-'''
- For reference, here are all the arguments used for the argument parser in the command line:
- * `--model`:  The file path of the pre-trained IR model, which has been pre-processed using the model optimizer. There is automated support built in this argument to support both FP32 and FP16 models targeting different hardware.
- * `--device`: The type of hardware you want to load the model on (CPU, GPU, MYRIAD, HETERO:FPGA,CPU)
- * `--video`: The file path of the input video.
- * `--output_path`: The location where the output stats and video file with inference needs to be stored (results/[device]).
- * `--max_people`: The max number of people in queue before directing a person to another queue.
- * `--threshold`: The probability threshold value for the person detection. Optional arg; default value is 0.60.
-'''
 
 class Queue:
     '''
@@ -61,38 +53,41 @@ class PersonDetect:
         self.input_shape=self.model.inputs[self.input_name].shape
         self.output_name=next(iter(self.model.outputs))
         self.output_shape=self.model.outputs[self.output_name].shape
-        
+
     def load_model(self):
-    '''
-    TODO: This method needs to be completed by you
-    '''
-        raise NotImplementedError
+        self.core = IECore()
+        self.net = self.core.load_network(network=self.model, device_name=self.device,num_requests=1)
         
     def predict(self, image):
-    '''
-    TODO: This method needs to be completed by you
-    '''
-        raise NotImplementedError
+        self.processed_image=self.preprocess_input(image)
+        results= self.net.infer(inputs={self.input_name:self.processed_image})
+        detections = results[self.output_name]
+        self.points, self.image = self.draw_outputs(detections, image)
+        return self.points, self.image 
     
-    def draw_outputs(self, coords, image):
-    '''
-    TODO: This method needs to be completed by you
-    '''
-        raise NotImplementedError
+    def draw_outputs(self, detections, image):
+        points=[]
+        for box in detections[0][0]: 
+            conf = box[2]
+            if conf >= self.threshold :
+                xmin = int(box[3] * image.shape[1])
+                ymin = int(box[4] * image.shape[0])
+                xmax = int(box[5] * image.shape[1])
+                ymax = int(box[6] * image.shape[0])
+                points.append((xmin, ymin, xmax, ymax))
+                cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 0, 255), 1)       
+        return points, image
 
     def preprocess_outputs(self, outputs):
-    '''
-    TODO: This method needs to be completed by you
-    '''
-        raise NotImplementedError
+        self.outputs = cv2.resize(outputs, (self.output_shape[3], self.output_shape[2]))
+        return self.outputs
 
     def preprocess_input(self, image):
-    '''
-    TODO: This method needs to be completed by you
-    '''
-        raise NotImplementedError
-
-
+        self.image = cv2.resize(image, (self.input_shape[3], self.input_shape[2]))
+        self.image = self.image.transpose((2,0,1))
+        self.image = self.image.reshape(1, *self.image.shape)
+        return self.image
+         
 def main(args):
     model=args.model
     device=args.device
@@ -140,6 +135,7 @@ def main(args):
             
             coords, image= pd.predict(frame)
             num_people= queue.check_coords(coords)
+            print('success')
             print(f"Total People in frame = {len(coords)}")
             print(f"Number of people in queue = {num_people}")
             out_text=""
@@ -152,6 +148,7 @@ def main(args):
                 cv2.putText(image, out_text, (15, y_pixel), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
                 out_text=""
                 y_pixel+=40
+               
             out_video.write(image)
             
         total_time=time.time()-start_inference_time
